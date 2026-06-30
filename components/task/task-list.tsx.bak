@@ -1,0 +1,206 @@
+import React, { useState } from 'react';
+import { useAetherStore } from '@/store/useAetherStore';
+import { TaskCard } from './TaskCard';
+import { Plus, X, Sparkles } from 'lucide-react';
+import { ButtonPremium } from '../ui/button-premium';
+import { toast } from 'sonner';
+
+interface TaskListProps {
+  onRescue: (taskId: string) => void;
+}
+
+export function TaskList({ onRescue }: TaskListProps) {
+  const { tasks, addTask } = useAetherStore();
+  const [isAdding, setIsAdding] = useState(false);
+  
+  // Form State
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [category, setCategory] = useState('Engineering');
+  const [estimatedMin, setEstimatedMin] = useState(60);
+  const [impactScore, setImpactScore] = useState(7);
+  const [energyCost, setEnergyCost] = useState(6);
+  const [dueDateOffset, setDueDateOffset] = useState(24); // hours from now
+
+  const handleSimulateRandom = () => {
+    const randomTasks = [
+      { title: 'Refactor R3F Particle Shaders', category: 'ML', est: 120, impact: 9, energy: 9, desc: 'Improve WebGL shader performance' },
+      { title: 'Setup Stripe webhook endpoints', category: 'Engineering', est: 45, impact: 8, energy: 6, desc: 'Handle subscription events' },
+      { title: 'Review seed pitch feedback', category: 'Business', est: 90, impact: 9, energy: 7, desc: 'Address runway questions from angels' },
+      { title: 'Conduct customer interview #4', category: 'Product', est: 30, impact: 6, energy: 5, desc: 'Collect timeline scroll feedback' }
+    ];
+
+    const pick = randomTasks[Math.floor(Math.random() * randomTasks.length)];
+    addTask({
+      title: pick.title,
+      description: pick.desc,
+      dueDate: new Date(Date.now() + 1000 * 3600 * (Math.floor(Math.random() * 48) + 12)).toISOString(),
+      estimatedMin: pick.est,
+      impactScore: pick.impact,
+      energyCost: pick.energy,
+      category: pick.category,
+      dependencies: [],
+    });
+    toast.success(`Synthesized: "${pick.title}"`);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title.trim()) {
+      toast.error('Title is required');
+      return;
+    }
+
+    addTask({
+      title,
+      description: description || undefined,
+      dueDate: new Date(Date.now() + 1000 * 3600 * dueDateOffset).toISOString(),
+      estimatedMin,
+      impactScore,
+      energyCost,
+      category,
+      dependencies: [],
+    });
+
+    toast.success(`Synthesized thread: "${title}"`);
+    setTitle('');
+    setDescription('');
+    setIsAdding(false);
+  };
+
+  // Sort active tasks by priority, and completed tasks at the bottom
+  const sortedTasks = [...tasks].sort((a, b) => {
+    if (a.status === 'DONE' && b.status !== 'DONE') return 1;
+    if (a.status !== 'DONE' && b.status === 'DONE') return -1;
+    return b.priority - a.priority;
+  });
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between border-b border-white/5 pb-4">
+        <div>
+          <h2 className="text-2xl font-semibold tracking-tighter">Active Threads</h2>
+          <p className="text-xs text-white/50 mt-1">
+            {tasks.filter((t) => t.status !== 'DONE').length} tasks remaining
+          </p>
+        </div>
+        
+        <div className="flex items-center gap-2">
+          <ButtonPremium onClick={() => setIsAdding(!isAdding)} variant="secondary">
+            {isAdding ? <X size={16} /> : <Plus size={16} />}
+            {isAdding ? 'Close' : 'Add Thread'}
+          </ButtonPremium>
+          <ButtonPremium onClick={handleSimulateRandom} variant="secondary">
+            <Sparkles size={14} className="text-purple-400" />
+            Simulate Task
+          </ButtonPremium>
+        </div>
+      </div>
+
+      {isAdding && (
+        <form onSubmit={handleSubmit} className="glass-strong rounded-2xl p-6 border border-white/10 space-y-4">
+          <h3 className="text-sm font-semibold tracking-wide text-white/80 uppercase">Synthesize New Thread</h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="text-[10px] uppercase text-white/50 tracking-wider">Thread Title</label>
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="e.g. Train recommender model"
+                className="w-full glass-input text-sm px-4 py-2 rounded-xl text-white placeholder-white/30"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] uppercase text-white/50 tracking-wider">Category</label>
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="w-full glass-input text-sm px-4 py-2 rounded-xl text-white bg-zinc-950 border-white/5 select-none"
+              >
+                <option value="Engineering">Engineering</option>
+                <option value="Technical">Technical</option>
+                <option value="Business">Business</option>
+                <option value="Product">Product</option>
+                <option value="Marketing">Marketing</option>
+                <option value="Ops">Operations</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[10px] uppercase text-white/50 tracking-wider">Description (Optional)</label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Provide context details..."
+              className="w-full glass-input text-sm px-4 py-2.5 rounded-xl text-white placeholder-white/30 resize-none h-16"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="space-y-1">
+              <label className="text-[10px] uppercase text-white/50 tracking-wider">Duration (Min)</label>
+              <input
+                type="number"
+                value={estimatedMin}
+                onChange={(e) => setEstimatedMin(Number(e.target.value))}
+                className="w-full glass-input text-sm px-4 py-2 rounded-xl text-white"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] uppercase text-white/50 tracking-wider">Impact Score (1-10)</label>
+              <input
+                type="number"
+                min="1"
+                max="10"
+                value={impactScore}
+                onChange={(e) => setImpactScore(Number(e.target.value))}
+                className="w-full glass-input text-sm px-4 py-2 rounded-xl text-white"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] uppercase text-white/50 tracking-wider">Energy Cost (1-10)</label>
+              <input
+                type="number"
+                min="1"
+                max="10"
+                value={energyCost}
+                onChange={(e) => setEnergyCost(Number(e.target.value))}
+                className="w-full glass-input text-sm px-4 py-2 rounded-xl text-white"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] uppercase text-white/50 tracking-wider">Due in (Hours)</label>
+              <input
+                type="number"
+                value={dueDateOffset}
+                onChange={(e) => setDueDateOffset(Number(e.target.value))}
+                className="w-full glass-input text-sm px-4 py-2 rounded-xl text-white"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-2">
+            <ButtonPremium type="submit" variant="primary">
+              Synthesize Thread
+            </ButtonPremium>
+          </div>
+        </form>
+      )}
+
+      <div className="space-y-3">
+        {sortedTasks.length === 0 ? (
+          <div className="glass p-8 text-center text-white/40 text-sm rounded-3xl border border-white/5">
+            No active threads. Enjoy the breathing room, or synthesize a new thread.
+          </div>
+        ) : (
+          sortedTasks.map((task) => (
+            <TaskCard key={task.id} task={task} onRescue={onRescue} />
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
